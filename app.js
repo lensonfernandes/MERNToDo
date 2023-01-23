@@ -204,7 +204,7 @@ try{
 //     data: userDb
 //  })
 
-return res.status(200).redirect('/home')
+return res.status(200).redirect('/dashboard')
 
 }
 catch(error){
@@ -229,6 +229,18 @@ app.get('/home', isAuth, (req, res)=>{
 
 app.get("/dashboard", isAuth, (req, res)=>{
  return res.render("dashboard")
+})
+
+app.post("/logout", isAuth, (req,res)=>{
+console.log(req.session);
+req.session.destroy((err)=>{
+    if(err) throw err;
+
+    res.redirect("/login")
+}
+
+)
+
 })
 
 app.listen(PORT, () => {
