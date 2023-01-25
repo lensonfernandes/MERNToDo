@@ -6,10 +6,7 @@ const isAuth = (req, res, next) => {
             next();
         }
         else{
-            return res.send({
-                status: 405,
-                message:"Invalid session, Please login"
-            })
+            return res.status(400).redirect("/login");
         }
       
     

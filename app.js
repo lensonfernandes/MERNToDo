@@ -9,6 +9,7 @@ const mongoDbSession = require('connect-mongodb-session')(session)
 const UserSchema = require("./UserSchema");
 const { cleanUpAndValidate } = require("./utils/AuthUtil");
 const { isAuth } = require("./middleware/authMiddleware");
+const ToDoModel = require("./models/ToDoModel");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -17,6 +18,7 @@ const saltRounds = 11;
 //middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 
 
@@ -227,9 +229,36 @@ app.get('/home', isAuth, (req, res)=>{
     return res.send("This is Home Page");
 })
 
-app.get("/dashboard", isAuth, (req, res)=>{
- return res.render("dashboard")
+app.get("/dashboard", isAuth, async (req, res)=>{
+
+    
+    const username = req.session.user.username;
+    let todos = []
+
+    try{
+         todos = await ToDoModel.find({username: username})
+
+        // if(todo.length === 0)
+        // {
+        //     return res.send({
+        //         status: 400,
+        //         message:"There's no todo, please create some"
+        //     })
+        // }
+    }
+    catch(error){
+        return res.send({
+            
+            status: 400,
+            message:"Error Occured",
+            error: error
+        })
+
+    }
+ return res.render("dashboard", {todos: todos})
 })
+
+ 
 
 app.post("/logout", isAuth, (req,res)=>{
 console.log(req.session);
@@ -241,6 +270,168 @@ req.session.destroy((err)=>{
 
 )
 
+})
+
+app.post("/logout_from_all_devices",isAuth, async (req, res)=>{
+
+    const username = req.session.user.username;
+
+    //session schema
+    const Schema = mongoose.Schema;
+    const sessionSchema = new Schema({_id: String}, {strict: false})
+    const SessionModel = mongoose.model("session", sessionSchema)
+
+    try{
+       const sessionDb =  await SessionModel.deleteMany({
+
+        "session.user.username": username
+
+        })
+
+        return res.send({
+            status: 200,
+            message:"Logged out from all devices successful"
+        })
+
+    }
+    catch(error){
+return res.send({
+    status: 400,
+    message:"Log out Operation failed" 
+})
+    }
+})
+
+//todo routes
+
+app.post("/create-item", isAuth, async (req,res)=>{
+    console.log(req.body.todo)
+
+    const todoText = req.body.todo;
+
+    if(!todoText){
+        return res.send({
+            status: 400,
+            message: "Missing paramters"
+        })
+    }
+    if(typeof todoText !== 'string'){
+        return res.send({
+            status: 400,
+            message: "Todo entered is not a string"
+        })
+    }
+
+
+    if(todoText.length > 100)
+    {
+        return res.send({
+            status: 400,
+            message:"ToDo is too long"
+        })
+    }
+
+    let todo = new ToDoModel({
+        todo: todoText,
+        username: req.session.user.username,
+    })
+
+    try{
+       const todoDb =  await todo.save();
+       return res.send({
+        status: 201,
+        message:"ToDo created",
+        data: todoDb
+       })
+
+    }
+    catch(error){
+        return res.send({
+            status: 500,
+            message:"ToDo creation didnt complete",
+            error: error
+           })
+    }
+})
+
+app.post('/edit-item', async (req,res)=>{
+    const id = req.body.id;
+    const newData = req.body.newData;
+
+    console.log(req.body);
+
+    if(!id || !newData){
+        return res.send({
+            status: 400,
+            message: "Missing parameters"
+        })
+    }
+    if(typeof newData !== 'string'){
+        return res.send({
+            status: 400,
+            message: "Todo entered is not a string"
+        })
+    }
+
+
+    if(newData.length > 100)
+    {
+        return res.send({
+            status: 400,
+            message:"ToDo is too long"
+        })
+    }
+
+    try{
+        const todoDb = await ToDoModel.findOneAndUpdate({_id: id}, {todo: newData})
+        if(!todoDb)
+        {
+            return res.send({
+                status: 404,
+                message:"ToDo not found",
+                data: todoDb
+               })
+        }
+        return res.send({
+            status: 200,
+            message:"ToDo Updated successfully",
+            data: todoDb
+           })
+    }
+    catch(error){
+        return res.send({
+            status: 500,
+            message:"ToDo update didnt complete",
+            error: error
+           })
+    }
+})
+
+app.post('/delete-item', async(req,res)=>{
+    const id = req.body.id;
+    console.log(req.body);
+
+    if(!id){
+        return res.send({
+            status: 400,
+            message: "Missing parameters"
+        })
+    }
+    try{
+        const todoDb = await ToDoModel.findOneAndDelete({_id: id})
+        return res.send({
+            status: 200,
+            message:"Deleted successfully",
+            data: todoDb
+           })
+    }
+    catch(error){
+        return res.send({
+            status: 500,
+            message:"Delete operation didnt complete",
+            error: error
+           })
+    }
 })
 
 app.listen(PORT, () => {
