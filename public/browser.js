@@ -4,6 +4,30 @@ const config = {
 // console.log("Hello from browser")
 
 document.addEventListener("click", function (event) {
+
+ 
+  if (event.target.classList.contains("add_item")) {
+    event.preventDefault();
+
+    const todoText = document.getElementById("create_field");
+
+    if(todoText.value === ''){
+      alert("Please engter todo text");
+      return ;
+    }
+
+    axios.post('/create-item', {todo:todoText.value}).then(res=>{
+      if(res.data.status !== 201){
+        alert(res.data.message);
+        return;
+      }
+    }).catch(err=>{
+      console.log(err)
+      alert(err)
+    })
+  }
+
+
   if (event.target.classList.contains("edit-me")) {
     //id
     //newData
